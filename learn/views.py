@@ -13,6 +13,12 @@ from django.db.models import Avg
 from tutor.models import TutorProfile, Skill 
 from django.shortcuts import get_object_or_404
 
+import os
+import resend
+
+# Set Resend API key (from environment variables)
+resend.api_key = os.getenv("RESEND_API_KEY")
+
 def learn_login(request):
     mode = request.GET.get("mode")  # login OR signup
     if mode=="login":
@@ -70,6 +76,27 @@ def signup(request):
             return render(request, "core/signup.html", 
                           {"email_error": "This email is already registered!",
                            "email": email})
+
+        # STEP 1 — SEND OTP
+        # if action == "send_otp":
+        #     request.session.pop("otp", None)
+        #     generated_otp = otp_generation()
+        #     request.session["otp"] = generated_otp
+        #     request.session["email"] = email
+
+        #     send_mail(
+        #         "SkillLink OTP Verification",
+        #         f"Your SkillLink OTP is: {generated_otp}",
+        #         "skill.link.connects@gmail.com",
+        #         [email],
+        #     )
+
+        #     return render(request, "core/signup.html", {
+        #         "email": email,
+        #         "show_otp": True,
+        #         "show_password": False,
+        #         "info": "OTP sent successfully"
+        #     })
 
         # STEP 1 — SEND OTP
         if action == "send_otp":

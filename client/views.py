@@ -21,6 +21,11 @@ from django.db.models import Count
 from .mock_data import TUTORS 
 from tutor.models import Skill
 
+import os
+import resend
+
+# Set Resend API key (from environment variables)
+resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 def client_login(request):
@@ -82,18 +87,45 @@ def client_signup(request):
                            "email": email})
 
         # STEP 1 — SEND OTP
+        # if action == "send_otp":
+        #     request.session.pop("otp", None)
+        #     generated_otp = otp_generation()
+        #     request.session["otp"] = generated_otp
+        #     request.session["email"] = email
+
+        #     send_mail(
+        #         "SkillLink OTP Verification",
+        #         f"Your SkillLink OTP is: {generated_otp}",
+        #         "skill.link.connects@gmail.com",
+        #         [email],
+        #     )
+
+        #     return render(request, "client/signup.html", {
+        #         "email": email,
+        #         "show_otp": True,
+        #         "show_password": False,
+        #         "info": "OTP sent successfully"
+        #     })
+        # STEP 1 — SEND OTP
         if action == "send_otp":
             request.session.pop("otp", None)
             generated_otp = otp_generation()
             request.session["otp"] = generated_otp
             request.session["email"] = email
 
-            send_mail(
-                "SkillLink OTP Verification",
-                f"Your SkillLink OTP is: {generated_otp}",
-                "skill.link.connects@gmail.com",
-                [email],
-            )
+            # Send OTP using Resend HTTP API
+            try:
+                resend.Emails.send({
+                    "from": "SkillLink <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": "SkillLink Client OTP Verification",
+                    "html": f"<p>Your SkillLink client verification OTP is: <strong>{generated_otp}</strong></p>"
+                })
+            except Exception as e:
+                return render(request, "client/signup.html", {
+                    "email": email,
+                    "email_error": f"Failed to send OTP: {str(e)}"
+                })
 
             return render(request, "client/signup.html", {
                 "email": email,
@@ -101,7 +133,6 @@ def client_signup(request):
                 "show_password": False,
                 "info": "OTP sent successfully"
             })
-
         # STEP 2 — VERIFY OTP
         if action == "verify_otp":
             session_otp = request.session.get("otp")
@@ -204,267 +235,7 @@ def otp_generation():
     otp = random.randint(100000, 999999)
     return otp
 
-# def client_login(request):
 
-#     # ---------- GET REQUEST ----------
-#     if request.method == "GET":
-#         return render(request, "client/login.html")
-
-#     # ---------- POST REQUEST ----------
-#     email = request.POST.get("email")
-#     otp = request.POST.get("otp")
-
-#     # ---------- STEP 1: SEND OTP ----------
-#     if email and not otp:
-
-#         # ✅ check if user exists
-#         user = User.objects.filter(email=email).first()
-#         if not user:
-#             return render(request, "client/login.html", {
-#                 "error": "Email not registered. Please sign up first."
-#             })
-
-#         generated_otp = random.randint(100000, 999999)
-
-#         request.session["login_otp"] = generated_otp
-#         request.session["login_email"] = email
-
-#         send_mail(
-#             subject="SkillLink Login OTP",
-#             message=f"Your OTP is {generated_otp}",
-#             from_email=None,
-#             recipient_list=[email],
-#             fail_silently=False,)
-
-#         return render(request, "client/login.html", {
-#             "otp_sent": "OTP sent successfully. Check your email."
-#         })
-
-#     # ---------- STEP 2: VERIFY OTP ----------
-#     if otp:
-
-#         session_otp = request.session.get("login_otp")
-#         session_email = request.session.get("login_email")
-
-#         if not session_otp or not session_email:
-#             return render(request, "client/login.html", {
-#                 "error": "Session expired. Please try again."
-#             })
-
-#         if str(otp) != str(session_otp):
-#             return render(request, "client/login.html", {
-#                 "error": "Invalid OTP"
-#             })
-
-#         # ✅ safe user fetch
-#         user = User.objects.filter(email=session_email).first()
-#         if not user:
-#             return render(request, "client/login.html", {
-#                 "error": "User not found. Please sign up."
-#             })
-
-#         # ✅ THIS logs the user in
-#         login(request, user)
-
-#         # cleanup session
-#         request.session.pop("login_otp", None)
-#         request.session.pop("login_email", None)
-
-#         return redirect("client-dashboard")
-
-#     # ---------- FALLBACK ----------
-#     return render(request, "client/login.html")
-
-
-#Yashwi UI Ux Changes
-# def client_login(request):
-
-#     if request.method == "GET":
-#         return render(request, "client/login.html")
-
-#     email = request.POST.get("email")
-#     password = request.POST.get("password")
-
-#     # check user exists
-#     user_obj = User.objects.filter(email=email).first()
-
-#     if not user_obj:
-#         return render(request, "client/login.html", {
-#             "email_error": "Email not registered."
-#         })
-
-#     # authenticate expects USERNAME
-#     user = authenticate(
-#         request,
-#         username=user_obj.username,
-#         password=password
-#     )
-
-#     if user is None:
-#         return render(request, "client/login.html", {
-#             "pass_error": "Invalid password",
-#             "email": email
-#         })
-
-#     login(request, user)
-
-#     # ⭐ REDIRECT AFTER LOGIN
-#     return redirect("complete_profile")
-
-
-
-# import random
-# from django.conf import settings
-# from django.core.mail import send_mail
-
-# def client_signup(request):
-
-#     if request.method == "POST":
-
-#         action = request.POST.get("action")
-
-#         # SEND OTP
-#         if action == "send_otp":
-#             email = request.POST.get("email")
-#             if not email:
-#                 return redirect("client-signup") 
-
-#             otp = str(random.randint(100000, 999999))
-
-#             request.session["signup_otp"] = otp
-#             request.session["signup_email"] = email
-
-            
-#             send_mail(
-#     subject="SkillLink OTP",
-#     message=f"Your OTP is {otp}",
-#     from_email=settings.EMAIL_HOST_USER,
-#     recipient_list=[email],
-#     fail_silently=False,)
-
-            
-
-#             return render(request, "client/signup.html", {
-#                 "show_otp": True,
-#                 "email": email
-#             })
-
-
-#         # VERIFY OTP
-#         elif action == "verify_otp":
-
-#             entered_otp = request.POST.get("otp")
-#             session_otp = request.session.get("signup_otp")
-
-#             if entered_otp == session_otp:
-#                 return render(request, "client/signup.html", {
-#                     "show_password": True
-#                 })
-#             else:
-#                 return render(request, "client/signup.html", {
-#                     "show_otp": True,
-#                     "otp_error": "Invalid OTP"
-#                 })
-
-
-#         # CREATE ACCOUNT
-#         elif action == "create_account":
-
-#             email = request.session.get("signup_email")
-#             if User.objects.filter(email=email).exists(): #
-#                 return render(request, "client/signup.html", {
-#         "show_password": True,
-#         "match_error": "Account already exists. Please login."
-#     })
-
-#             password = request.POST.get("password")
-#             confirm = request.POST.get("confirm_password")
-           
-
-#             if password != confirm:
-#                 return render(request, "client/signup.html", {
-#                     "show_password": True,
-#                     "match_error": "Passwords do not match"
-#                 })
-
-#             user = User.objects.create_user(
-#                 username=email,
-#                 email=email,
-#                 password=password
-#             )
-
-#             ClientProfile.objects.create(user=user)
-
-#             request.session.pop("signup_email", None)
-#             request.session.pop("signup_otp", None)
-
-
-#             return redirect("client-login")
-
-#     return render(request, "client/signup.html")
-
-
-
-
-# def generate_otp():
-#     return str(random.randint(100000, 999999))
-
-
-# def login_send_otp(request):
-#     if request.method == "POST":
-#         email = request.POST.get("email")
-#         password = request.POST.get("password")
-
-#         user = authenticate(username=email, password=password)
-
-#         if user is None:
-#             return render(request, "core/index.html", {
-#                 "error": "Invalid email or password"
-#             })
-
-#         otp = generate_otp()
-
-#         EmailOTP.objects.create(
-#             user=user,
-#             otp=otp
-#         )
-
-#         send_mail(
-#             "SkillLink Login OTP",
-#             f"Your OTP is {otp}. Valid for 5 minutes.",
-#             "skilllink.auth@gmail.com",
-#             [email],
-#             fail_silently=False
-#         )
-
-#         return render(request, "core/index.html", {
-#             "otp_sent": True,
-#             "email": email
-#         })
-# def verify_login_otp(request):
-#     if request.method == "POST":
-#         email = request.POST.get("email")
-#         otp_entered = request.POST.get("otp")
-
-#         user = User.objects.get(email=email)
-
-#         otp_obj = EmailOTP.objects.filter(
-#             user=user,
-#             otp=otp_entered,
-#             is_verified=False
-#         ).last()
-
-#         if otp_obj:
-#             otp_obj.is_verified = True
-#             otp_obj.save()
-#             login(request, user)
-#             return redirect("dashboard")
-
-#         return render(request, "core/index.html", {
-#             "error": "Invalid OTP",
-#             "otp_sent": True,
-#             "email": email
-#         })
 import random
 
 # def send_otp(email):
@@ -572,39 +343,7 @@ def client_logout(request):
 from django.contrib.auth.decorators import login_required
 
 
-# @login_required(login_url="client-login")
-# def complete_client_profile(request):
-#     client_profile, created = ClientProfile.objects.get_or_create(
-#     user=request.user
-# )
 
-#     if request.method == "POST":
-
-#         client_profile.company_name = request.POST.get("company_name")
-#         client_profile.location = request.POST.get("location")
-#         client_profile.bio = request.POST.get("bio")
-#         client_profile.linkedin = request.POST.get("linkedin")
-
-#     if request.FILES.get("proof"):
-#         client_profile.work_proof = request.FILES.get("proof")
-
-
-# # ✅ SMART CHECK (Do NOT include proof)
-#     if (
-#         client_profile.company_name and
-#         client_profile.location and
-#         client_profile.bio
-#     ):
-#         client_profile.is_profile_complete = True
-#     else:
-#         client_profile.is_profile_complete = False
-
-
-#     client_profile.save()
-#     return redirect("client-dashboard")
-#     return render(request, "client/complete_profile.html", {
-#         "client": client_profile
-#     })
 @login_required(login_url="client-login")
 def complete_client_profile(request):
 
@@ -642,32 +381,6 @@ def complete_client_profile(request):
     return render(request, "client/complete_profile.html", {
         "client": client_profile
     })
-
-    # profile = ClientProfile.objects.get(user=request.user)
-
-
-    # if request.method == "POST":
-
-    #     profile.company_name = request.POST.get("company_name")
-
-    #     if not profile.company_name:
-    #         return redirect("complete-client-profile")~
-
-    #     profile.location = request.POST.get("location")
-    #     profile.bio = request.POST.get("bio")
-    #     profile.linkedin = request.POST.get("linkedin")
-
-    #     if request.FILES.get("proof"):
-    #         profile.proof = request.FILES.get("proof")
-
-    #     profile.save()
-
-    #     return redirect("client-dashboard")
-
-    # return render(request, "client/complete_profile.html")
-
-
-
 
 
 # for fake data
