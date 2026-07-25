@@ -129,8 +129,14 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = 'skill.link.connects@gmail.com'
-EMAIL_HOST_PASSWORD = 'csourmehezdxptlk'
+# EMAIL_HOST_USER = 'skill.link.connects@gmail.com'
+# EMAIL_HOST_PASSWORD = 'csourmehezdxptlk'
+
+
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'skill.link.connects@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-app-password')
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
